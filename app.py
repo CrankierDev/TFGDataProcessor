@@ -1,4 +1,5 @@
 import os
+
 import db
 import sqlite3
 import tkinter as tk
@@ -58,7 +59,7 @@ class DataProcess:
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
 
         # Define table structure
-        self.table = ttk.Treeview(height=30, columns=("#1", "#2", "#3", "#4", "#5", "#6", "#7"), style="Treeview")
+        self.table = ttk.Treeview(height=30, columns=("#1", "#2", "#3", "#4", "#5", "#6"), style="Treeview")
         # At last line, we only need to add new #, #0 comes by default
         # Set a unique width for columns
         self.columnWidth = 140
@@ -67,10 +68,9 @@ class DataProcess:
         self.table.heading('#1', text='Simulation', anchor=CENTER)
         self.table.heading('#2', text='AOA', anchor=CENTER)
         self.table.heading('#3', text='Y+', anchor=CENTER)
-        self.table.heading('#4', text='Cm', anchor=CENTER)
-        self.table.heading('#5', text='Cd', anchor=CENTER)
-        self.table.heading('#6', text='Cl', anchor=CENTER)
-        self.table.heading('#7', text='Efficiency', anchor=CENTER)
+        self.table.heading('#4', text='Cd', anchor=CENTER)
+        self.table.heading('#5', text='Cl', anchor=CENTER)
+        self.table.heading('#6', text='Efficiency', anchor=CENTER)
         self.table.column('#0', anchor=CENTER, width=self.columnWidth)
         self.table.column('#1', anchor=CENTER, width=self.columnWidth)
         self.table.column('#2', anchor=CENTER, width=self.columnWidth)
@@ -78,7 +78,6 @@ class DataProcess:
         self.table.column('#4', anchor=CENTER, width=self.columnWidth)
         self.table.column('#5', anchor=CENTER, width=self.columnWidth)
         self.table.column('#6', anchor=CENTER, width=self.columnWidth)
-        self.table.column('#7', anchor=CENTER, width=self.columnWidth)
 
         # Add a scrollbar
         self.scrollbar = ttk.Scrollbar(orient="vertical", command=self.table.yview)
@@ -101,7 +100,7 @@ class DataProcess:
         # Plot data at the table
         for row in dataLogging:
             self.table.insert('', 0, text=row.method,
-                              values=(row.simulation, row.angleOfAttack, row.yPlus, row.momentsCoeff,
+                              values=(row.simulation, row.angleOfAttack, row.yPlus,
                                       row.dragCoeff, row.liftCoeff, row.efficiency))
 
         # Refresh list of roots
@@ -148,25 +147,34 @@ class DataProcess:
                                         break
 
                                 coeffs = []
-                                index += 1
+                                index += 2
 
-                                for i in range(3):
+                                for i in range(2):
                                     coeffsFeed = info[index + i].split('=')[1].strip('\n')
                                     coeffs.append(float(coeffsFeed))
 
+                                # Lets control if YPlus has been writed
+                                readYPlus = True
                                 while not infoInit.startswith("yPlus"):
                                     index += 1
                                     infoInit = info[index]
 
-                                    if index == 0:
+                                    if infoInit.startswith("End"):
+                                        readYPlus = False
                                         break
 
-                                index += 2
-                                yPlusFeed = info[index].split('=')[3].strip()
-                                coeffs.append(float(yPlusFeed))
+                                if readYPlus:
+                                    index += 2
+                                    yPlusFeed = info[index].split('=')[3].strip()
+                                    coeffs.append(float(yPlusFeed))
 
-                            newLog = AeroData(roots, folder, simulation, simulationFolder, round(coeffs[0], 3),
-                                              round(coeffs[1], 3), round(coeffs[2], 3), round(coeffs[3], 3))
+                                    newLog = AeroData(roots, folder, simulation, simulationFolder,
+                                                      round(coeffs[0], 3), round(coeffs[1], 3),
+                                                      round(coeffs[2], 3))
+                                else:
+                                    newLog = AeroData(roots, folder, simulation, simulationFolder,
+                                                      round(coeffs[0], 3), round(coeffs[1], 3), None)
+
                             newLogsList.append(newLog)
 
                         except FileNotFoundError:
@@ -182,28 +190,42 @@ class DataProcess:
             db.session.commit()
 
             print(f"{len(newLogsList)} new entries generated in the database.")
+        else:
+            print("No new entries were added to the database.")
 
         self.getLogs()
 
     # Define a method which make graphs and save it at folders
     def graphData(self):
         # Set a list with all simulations
-        dbSimulations = db.session.query(AeroData).all()
+        ''' dbSimulations = db.session.query(AeroData).all()
         simulations = []
         for dbSimulation in dbSimulations:
             if dbSimulation.simulation not in simulations:
-                simulations.append(dbSimulation.simulation)
+                simulations.append(dbSimulation.simulation)'''
 
         # Each simulation must be collected in a bigger dictionary
         plotsData = {}  # Dictionary with all data from new plots
         simulationData = {}  # Dictionary with data of each new simulation
         for method in self.archivesRoot:
-            dir = os.listdir()
-            if method+' drag coefficient.png' not in dir or method+' lift coefficient.png' not in dir \
-                or method+' efficiency.png' not in dir or method+' polar.png' not in dir:
+            dbSimulations = db.session.query(AeroData).filter_by(method=method).all()
+            simulations = []
+
+            for dbSimulation in dbSimulations:
+                if dbSimulation.simulation not in simulations:
+                    simulations.append(dbSimulation.simulation)
+            # simulations = db.session.query(AeroData).filter_by(method=method).all()
+
+            dirFiles = os.listdir()
+            if method + ' drag coefficient.png' not in dirFiles or \
+                    method + ' lift coefficient.png' not in dirFiles or \
+                    method + ' efficiency.png' not in dirFiles or \
+                    method + ' polar.png' not in dirFiles:
+
+                simulationData = {}
                 for simulation in simulations:
                     # Collect data of the simulation from DB
-                    dbDataFromSimulation = db.session.query(AeroData).filter_by(simulation=simulation).all()
+                    dbDataFromSimulation = db.session.query(AeroData).filter_by(method=method).filter_by(simulation=simulation).all()
 
                     # Preprocess dataset from query with a dictionary
                     processedData = {'alpha': [],
@@ -284,6 +306,17 @@ class DataProcess:
             }
 
         for key in plotsData.keys():
+            if key == 'method1':
+                key = '10%c suction slot active'
+            elif key == 'method2':
+                key = '70%c suction slot active'
+            elif key == 'method3':
+                key = 'Both suction slots active'
+            elif key == 'method4':
+                key = '10%c suction slot passive, 70%c active'
+            elif key == 'method5':
+                key = '10%c suction slot active, 70%c passive'
+
             # Lift plot
             plot_name = key + ' lift coefficient'
             grapher(plot_name, 'alpha', 'cl', plotsData, key, graphSettings, colorList, fontSize, labelsFontSize)
@@ -299,6 +332,7 @@ class DataProcess:
             # Efficiency plot
             plot_name = key + ' efficiency'
             grapher(plot_name, 'alpha', 'ef', plotsData, key, graphSettings, colorList, fontSize, labelsFontSize)
+
 
 if __name__ == '__main__':
     db.Base.metadata.create_all(db.engine)  # Creates the data model

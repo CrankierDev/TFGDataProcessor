@@ -57,7 +57,7 @@ def grapher(title, data_x, data_y, plotsData, key, graphSettings, colorList, fon
             simulationLegend = simulation.replace('flap_', 'flap deflected ').replace('_def', ' degrees')
 
         plt.plot(plotsData[key][simulation][data_x], plotsData[key][simulation][data_y],
-                 linestyle=linestyle, marker='o', label=simulationLegend, color=colorList[i - 1])
+                 linestyle=linestyle, marker='o', label=simulationLegend, color=colorList[i - 1].strip())
 
     if data_y == 'cd':
         legendLocation = 'upper left'
@@ -73,4 +73,4 @@ def grapher(title, data_x, data_y, plotsData, key, graphSettings, colorList, fon
     plt.grid(True)
     plt.legend(loc=legendLocation, fontsize=labelsFontSize)
     plt.savefig(fname=savingName)
-    plt.show()
+    # plt.show()

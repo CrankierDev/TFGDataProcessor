@@ -10,18 +10,16 @@ class AeroData(db.Base):
     simulation = Column(String(20), nullable=False)
     angleOfAttack = Column(String(20), nullable=False)
     urlData = Column(String(300), nullable=False)
-    momentsCoeff = Column(Float, nullable=False)
     dragCoeff = Column(Float, nullable=False)
     liftCoeff = Column(Float, nullable=False)
-    yPlus = Column(Float, nullable=False)
+    yPlus = Column(Float, nullable=True)
     efficiency = Column(Float, nullable=False)
 
-    def __init__(self, method, simulation, angleOfAttack, urlData, momentsCoeff, dragCoeff, liftCoeff, yPlus):
+    def __init__(self, method, simulation, angleOfAttack, urlData, dragCoeff, liftCoeff, yPlus):
         self.method = method
         self.simulation = simulation
         self.angleOfAttack = angleOfAttack
         self.urlData = urlData
-        self.momentsCoeff = momentsCoeff
         self.dragCoeff = dragCoeff
         self.liftCoeff = liftCoeff
         self.yPlus = yPlus
